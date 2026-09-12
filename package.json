@@ -1,0 +1,31 @@
+{
+  "name": "aurora-chess",
+  "version": "1.2.0",
+  "description": "Aurora — chess engine and 3D chess game",
+  "type": "module",
+  "bin": {
+    "aurora": "src/cli.js"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "engine": "node src/engine/uci.js",
+    "bench": "node src/engine/bench.js",
+    "perft": "node src/engine/perft.js",
+    "test": "node test/engine.test.js && node test/more.test.js && node test/suite.test.js && node test/api.test.js && node test/legal.test.js && node test/modes.test.js && node test/cli.test.js",
+    "selfplay": "node src/engine/selfplay.js",
+    "match": "node src/engine/match.js",
+    "divide": "node src/engine/divide.js",
+    "xboard": "node src/engine/xboard.js",
+    "tournament": "node src/engine/tournament.js",
+    "texel": "node src/engine/texel.js",
+    "cli": "node src/cli.js"
+  },
+  "dependencies": {
+    "three": "^0.169.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}
