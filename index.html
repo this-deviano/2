@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aurora Chess — 3D engine & board</title>
+  <link rel="stylesheet" href="/src/ui/style.css" />
+</head>
+<body>
+  <div id="app">
+    <aside class="panel left">
+      <header>
+        <h1>Aurora</h1>
+        <p class="tag">Bitboard engine · 3D board</p>
+      </header>
+
+      <nav class="tabs">
+        <button data-tab="play" class="on">Play</button>
+        <button data-tab="analyze">Analyze</button>
+        <button data-tab="puzzles">Puzzles</button>
+        <button data-tab="museum">Games</button>
+        <button data-tab="train">Trainer</button>
+        <button data-tab="rush">Rush</button>
+        <button data-tab="lessons">Lessons</button>
+        <button data-tab="editor">Editor</button>
+        <button data-tab="setup">Setup</button>
+      </nav>
+
+      <section data-pane="play">
+        <div class="row">
+          <label>You play</label>
+          <select id="humanSide">
+            <option value="0">White</option>
+            <option value="1">Black</option>
+            <option value="2">Both (hotseat)</option>
+            <option value="3">Engine vs engine</option>
+          </select>
+        </div>
+        <div class="row">
+          <label>Think time</label>
+          <select id="strength">
+            <option value="150">Bullet 150ms</option>
+            <option value="400">Blitz 0.4s</option>
+            <option value="800" selected>Rapid 0.8s</option>
+            <option value="2000">Think 2s</option>
+            <option value="5000">Deep 5s</option>
+          </select>
+        </div>
+        <div class="row">
+          <label>Clock</label>
+          <select id="clockMin">
+            <option value="0">Off</option>
+            <option value="1">1+0</option>
+            <option value="3" selected>3+0</option>
+            <option value="5">5+0</option>
+            <option value="10">10+0</option>
+          </select>
+        </div>
+        <div class="row">
+          <label>Opening book</label>
+          <input type="checkbox" id="useBook" checked />
+        </div>
+        <div class="btns">
+          <button id="newGame">New</button>
+          <button id="flip">Flip</button>
+          <button id="undo">Undo</button>
+          <button id="hint">Hint</button>
+          <button id="saveGame">Save</button>
+          <button id="loadGame">Load</button>
+          <button id="frc">Chess960</button>
+          <button id="resign">Resign</button>
+        </div>
+        <p class="hint" id="openingName">Opening: start</p>
+        <div class="row">
+          <label>Skill 0–20</label>
+          <input type="range" id="skill" min="0" max="20" value="20" />
+        </div>
+        <div class="btns">
+          <button id="camW">Cam White</button>
+          <button id="camB">Cam Black</button>
+          <button id="camTop">Cam Top</button>
+          <button id="drawOffer">Draw</button>
+        </div>
+        <div class="row"><label>Language</label>
+          <select id="lang"><option value="en">English</option><option value="fr">Français</option></select>
+        </div>
+        <div class="row"><label>Full 2D</label><input type="checkbox" id="full2d" /></div>
+        <div id="explorer" class="hint">Explorer idle</div>
+        <canvas id="evalGraph" width="280" height="64"></canvas>
+      </section>
+
+      <section data-pane="analyze" hidden>
+        <p class="hint">Load a FEN or PGN. Aurora streams a principal variation.</p>
+        <textarea id="fenBox" rows="2" placeholder="FEN"></textarea>
+        <textarea id="pgnBox" rows="4" placeholder="PGN"></textarea>
+        <div class="btns">
+          <button id="loadFen">Load FEN</button>
+          <button id="loadPgn">Load PGN</button>
+          <button id="copyFen">Copy FEN</button>
+          <button id="copyPgn">Copy PGN</button>
+          <button id="analyzeGo">Analyze</button>
+          <button id="analyzeStop">Stop</button>
+        </div>
+      </section>
+
+      <section data-pane="museum" hidden>
+        <p class="hint">Famous games</p>
+        <select id="gameSel"></select>
+        <button id="loadGameDb">Load game</button>
+      </section>
+      <section data-pane="train" hidden>
+        <p class="hint" id="trainHint">Opening trainer — play the book move</p>
+        <button id="trainNew">New line</button>
+        <button id="trainHintBtn">Hint</button>
+      </section>
+      <section data-pane="rush" hidden>
+        <p class="hint">Puzzle rush — score <b id="rushScore">0</b></p>
+        <button id="rushStart">Start rush</button>
+      </section>
+      <section data-pane="puzzles" hidden>
+        <p id="puzzleTitle" class="hint">Select a puzzle</p>
+        <select id="puzzleSel"></select>
+        <button id="loadPuzzle">Load puzzle</button>
+      </section>
+
+      <section data-pane="lessons" hidden>
+        <select id="lessonSel"></select>
+        <p class="hint" id="lessonText">Learn the rules and endgames.</p>
+        <button id="loadLesson">Load lesson</button>
+      </section>
+      <section data-pane="editor" hidden>
+        <p class="hint">Click squares on the 2D board to cycle pieces. Then Play from FEN.</p>
+        <div class="btns">
+          <button id="edEmpty">Empty</button>
+          <button id="edStart">Start</button>
+          <button id="edPlay">Play this</button>
+        </div>
+      </section>
+      <section data-pane="setup" hidden>
+        <div class="row"><label>Board theme</label>
+          <select id="theme">
+            <option value="walnut">Walnut</option>
+            <option value="ice">Ice</option>
+            <option value="emerald">Emerald</option>
+          </select>
+        </div>
+        <div class="row"><label>Coords</label><input type="checkbox" id="coords" checked /></div>
+        <div class="row"><label>Animate</label><input type="checkbox" id="animate" checked /></div>
+        <div class="row"><label>Sound</label><input type="checkbox" id="sound" checked /></div>
+        <div class="row"><label>2D board</label><input type="checkbox" id="show2d" checked /></div>
+        <p class="hint">Keys: N new · U undo · F flip · H hint · A analyze · Space engine · 1–9 puzzles</p>
+      </section>
+
+      <div class="clocks">
+        <div class="clk" id="clkB"><span id="nameB">Black</span><b id="timeB">—</b></div>
+        <div class="evalbar"><i id="evalFill"></i></div>
+        <div class="clk" id="clkW"><span id="nameW">White</span><b id="timeW">—</b></div>
+      </div>
+      <div class="caps">
+        <div id="capB"></div>
+        <div id="capW"></div>
+      </div>
+      <div class="status" id="status">White to move</div>
+      <form id="sanForm" class="row">
+        <label>SAN</label>
+        <input id="sanIn" placeholder="Nf3" autocomplete="off" />
+      </form>
+      <div class="row">
+        <label>Replay</label>
+        <input type="range" id="replay" min="0" max="0" value="0" />
+      </div>
+      <ol id="moves" class="moves"></ol>
+      <div class="engine-line" id="engineLine">engine idle</div>
+    </aside>
+    <div class="stage">
+      <canvas id="c"></canvas>
+      <div id="board2d"></div>
+      <div id="full2dRoot" class="full2d" hidden></div>
+    </div>
+  </div>
+  <div id="promo" class="promo" hidden>
+    <button data-p="q">Queen</button>
+    <button data-p="r">Rook</button>
+    <button data-p="b">Bishop</button>
+    <button data-p="n">Knight</button>
+  </div>
+  <script type="module" src="/src/ui/main.js"></script>
+</body>
+</html>
