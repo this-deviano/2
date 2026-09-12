@@ -1,7 +1,6 @@
-import { INF, MATE, MATE_IN_MAX } from './const.js';
+import { INF, MATE, MATE_IN_MAX, PIECE_VAL, PAWN } from './const.js';
 import { evaluate } from './eval.js';
-import { PIECE_VAL } from './const.js';
-import { moveFrom, moveTo, movePromo, moveFlags, MF_CAPTURE, moveToUci, parseUci } from './position.js';
+import { moveFrom, moveTo, movePromo, moveFlags, MF_CAPTURE, MF_EP, moveToUci, parseUci } from './position.js';
 import { see } from './see.js';
 import { probeBook } from './book.js';
 import { probeOpening } from './openings.js';
@@ -90,12 +89,19 @@ export class Searcher {
     if (stand > alpha) alpha = stand;
 
     let moves = pos.genMoves(true);
-    const legal = [];
-    for (const m of moves) if (pos.isLegal(m)) legal.push(m);
-    moves = this.order(pos, legal, ply, 0);
+    moves = this.order(pos, pos.filterLegal(moves), ply, 0);
 
     for (const m of moves) {
-      if (!(moveFlags(m) & MF_CAPTURE) && !movePromo(m)) continue;
+      const flags = moveFlags(m);
+      const promo = movePromo(m);
+      if (!(flags & MF_CAPTURE) && !promo) continue;
+      // Delta pruning: even with the victim's full value added, this capture
+      // cannot lift the stand-pat score up to alpha, so skip it. Promotions are
+      // exempt — their gain is not bounded by the captured piece.
+      if (!promo) {
+        const victim = (flags & MF_EP) ? PIECE_VAL[PAWN] : (PIECE_VAL[pos.pieceTypeOn(moveTo(m))] ?? 0);
+        if (stand + victim + SP.DELTA_PRUNE < alpha) continue;
+      }
       if (see(pos, m) < SP.SEE_QS) continue;
       pos.makeMove(m);
       const score = -this.quiesce(pos, -beta, -alpha, ply + 1);
@@ -131,7 +137,9 @@ export class Searcher {
 
     if (depth <= 0) return this.quiesce(pos, alpha, beta, ply);
 
-    const eval0 = !inCheck ? evaluate(pos) : 0;
+    // Contempt: skew the static eval so the engine steers away of draws it could
+    // otherwise accept. 0 (the default) leaves evaluation untouched.
+    const eval0 = !inCheck ? evaluate(pos) + SP.CONTEMPT : 0;
     if (!pvNode && !inCheck && depth <= SP.FUTILITY_DEPTH && eval0 - SP.RFP_MARGIN * depth >= beta) return eval0;
     if (!pvNode && !inCheck && depth <= 2 && eval0 + SP.RAZOR_MARGIN * depth <= alpha) {
       return this.quiesce(pos, alpha, beta, ply);
@@ -204,7 +212,7 @@ export class Searcher {
         if (!capture) {
           this.killers[ply][1] = this.killers[ply][0];
           this.killers[ply][0] = m;
-          this.history[moveFrom(m) * 64 + moveTo(m)] += depth * depth;
+          this.history[moveFrom(m) * 64 + moveTo(m)] += SP.HISTORY_BONUS * depth * depth;
           if (prev) this.counter[moveFrom(prev) * 64 + moveTo(prev)] = m;
         }
         break;

@@ -151,13 +151,36 @@ export class Position {
     return null;
   }
 
-  attackersTo(sq, by, occ = this.all) {
+  /** Piece type on `sq`, or -1. Same scan as pieceOn() without allocating. */
+  pieceTypeOn(sq) {
+    const b = bit(sq);
+    for (let c = 0; c < 2; c++) {
+      for (let p = 0; p < 6; p++) {
+        if (this.bb[c][p] & b) return p;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * Bitboard of `by`-coloured pieces attacking `sq`, given occupancy `occ`.
+   * `ignore` names squares whose pieces should be treated as absent — needed by
+   * legality checks for en passant, where the captured pawn is removed from the
+   * board without a full make/undo. Without it the captured pawn still counts as
+   * an attacker/blocker and some ep captures are scored illegally.
+   */
+  attackersTo(sq, by, occ = this.all, ignore = 0n) {
     const them = by;
-    let atk = PAWN_ATK[them ^ 1][sq] & this.bb[them][PAWN];
-    atk |= KNIGHT_ATK[sq] & this.bb[them][KNIGHT];
-    atk |= KING_ATK[sq] & this.bb[them][KING];
-    atk |= bishopAttacks(sq, occ) & (this.bb[them][BISHOP] | this.bb[them][QUEEN]);
-    atk |= rookAttacks(sq, occ) & (this.bb[them][ROOK] | this.bb[them][QUEEN]);
+    const keep = ~ignore;
+    const pawn = this.bb[them][PAWN] & keep;
+    const knight = this.bb[them][KNIGHT] & keep;
+    const king = this.bb[them][KING] & keep;
+    const slider = (this.bb[them][QUEEN] & keep);
+    let atk = PAWN_ATK[them ^ 1][sq] & pawn;
+    atk |= KNIGHT_ATK[sq] & knight;
+    atk |= KING_ATK[sq] & king;
+    atk |= bishopAttacks(sq, occ) & ((this.bb[them][BISHOP] & keep) | slider);
+    atk |= rookAttacks(sq, occ) & ((this.bb[them][ROOK] & keep) | slider);
     return atk;
   }
 
@@ -272,15 +295,30 @@ export class Position {
     return moves;
   }
 
+  /** Every legal move. Uses the occupancy-based check, not make/undo. */
   legalMoves() {
     const raw = this.genMoves(false);
     const legal = [];
     for (const m of raw) {
-      if (this.isLegal(m)) legal.push(m);
+      if (this.isLegalFast(m)) legal.push(m);
     }
     return legal;
   }
 
+  /** Keep only the legal moves from an already-generated list. */
+  filterLegal(moves) {
+    const legal = [];
+    for (const m of moves) {
+      if (this.isLegalFast(m)) legal.push(m);
+    }
+    return legal;
+  }
+
+  /**
+   * Reference legality test: play the move, see if the king is left in check,
+   * take it back. Correct but slow — kept as the ground truth that tests compare
+   * isLegalFast() against. Hot paths should use isLegalFast()/filterLegal().
+   */
   isLegal(m) {
     this.makeMove(m);
     const ok = !this.inCheck(this.side ^ 1);
@@ -288,14 +326,19 @@ export class Position {
     return ok;
   }
 
+  /**
+   * Legality without make/undo: rebuild occupancy for the hypothetical move and
+   * ask whether our king would be attacked. Much cheaper than isLegal() and safe
+   * for en passant, where the captured pawn is excluded via `ignore`.
+   */
   isLegalFast(m) {
     const from = moveFrom(m);
     const to = moveTo(m);
     const flags = moveFlags(m);
     const us = this.side;
     const them = us ^ 1;
-    const moving = this.pieceOn(from);
-    if (!moving) return false;
+    const movingType = this.pieceTypeOn(from);
+    if (movingType < 0) return false;
     let occ = this.all ^ bit(from);
     let ignore = 0n;
     let capSq = to;
@@ -311,7 +354,7 @@ export class Position {
       if (to === 62) occ ^= bit(63) | bit(61);
       if (to === 58) occ ^= bit(56) | bit(59);
     }
-    const ksq = moving.type === KING ? to : lsb(this.bb[us][KING]);
+    const ksq = movingType === KING ? to : lsb(this.bb[us][KING]);
     return this.attackersTo(ksq, them, occ, ignore) === 0n;
   }
 

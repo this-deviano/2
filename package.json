@@ -1,6 +1,6 @@
 {
   "name": "aurora-chess",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Aurora — chess engine and 3D chess game",
   "type": "module",
   "bin": {
@@ -13,7 +13,8 @@
     "engine": "node src/engine/uci.js",
     "bench": "node src/engine/bench.js",
     "perft": "node src/engine/perft.js",
-    "test": "node test/engine.test.js && node test/more.test.js && node test/suite.test.js && node test/api.test.js && node test/legal.test.js && node test/modes.test.js && node test/cli.test.js",
+    "test": "node test/engine.test.js && node test/more.test.js && node test/suite.test.js && node test/api.test.js && node test/legal.test.js && node test/modes.test.js && node test/cli.test.js && node test/slow.test.js",
+    "test:slow": "node test/slow.test.js",
     "selfplay": "node src/engine/selfplay.js",
     "match": "node src/engine/match.js",
     "divide": "node src/engine/divide.js",

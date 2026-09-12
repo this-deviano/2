@@ -17,7 +17,31 @@ Flags: capture, en passant, castle, double pawn push.
 
 ## Generation
 
-Knights/kings use attack tables. Sliding pieces use ray bitboards with first-blocker masking. Legality is checked by make/unmake and `inCheck` of the opponent-to-the-mover (the side that just moved).
+Knights/kings use attack tables. Sliding pieces use magic-indexed attack tables
+(`BISHOP_TAB`/`ROOK_TAB` in `bitboard.js`).
+
+Legality is checked by `isLegalFast()`: it rebuilds occupancy for the hypothetical
+move and asks whether our king would be attacked, instead of make/unmake + `inCheck`.
+En passant is handled by passing the captured pawn's square as `ignore` to
+`attackersTo()`, so the removed pawn neither blocks nor attacks. `isLegal()` (the slow
+make/unmake version) is kept as ground truth — `test/slow.test.js` differentially
+compares the two over tens of thousands of moves.
+
+### Performance
+
+Boards are `BigInt`, so the hot primitives avoid BigInt work where they can:
+
+- `bit(sq)` reads a precomputed table rather than evaluating `1n << BigInt(sq)`
+- `lsb`/`msb`/`popcount` split the board into two 32-bit numbers and use
+  `Math.clz32` / SWAR — no `toString(2)` and no bit-at-a-time BigInt loop
+- magic indexing precomputes each mask's bit list and packs the occupancy from the
+  32-bit halves; `queenAttacks` splits the BigInt once for both directions
+- `between()` is a precomputed 64×64 table
+- `nnueEval` reuses one accumulator instead of allocating per call
+
+Measured on Node 22, single thread: ~1.3M nps raw move generation, ~45k nps in search
+(midgame). A native engine is orders of magnitude faster because it keeps bitboards in
+registers; closing that gap needs a split 32-bit board representation.
 
 ## Search
 
@@ -30,6 +54,8 @@ Knights/kings use attack tables. Sliding pieces use ray bitboards with first-blo
 - Check extensions
 - Killer moves + history heuristic
 - MVV-LVA + SEE in quiescence
+- Delta pruning in quiescence
+- Contempt and history-bonus scaling via `search-params.js`
 - 50-move, repetition, insufficient material, minor-piece draws
 - Weighted opening book (first ~12 moves)
 - UCI time management: remaining / moves-to-go + increment
